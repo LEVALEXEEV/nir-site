@@ -102,12 +102,13 @@ jobs:
           sparse-checkout: scripts
 
       - name: Healthcheck GitHub Pages
+        timeout-minutes: 4
         run: scripts/healthcheck.sh "${{ steps.deployment.outputs.page_url }}" "$GITHUB_SHA"
 
   helios:
     needs: build
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     environment:
       name: ${{ github.ref == 'refs/heads/main' && 'helios' || 'helios-preview' }}
       url: ${{ needs.build.outputs.helios_url }}
@@ -136,11 +137,14 @@ jobs:
         id: upload
         run: scripts/helios/deploy.sh upload site-helios "$GITHUB_REF_NAME" "$GITHUB_SHA"
 
+      # свой лимит шага: зависший healthcheck должен упасть (failure), а не
+      # довести job до отмены по таймауту — тогда шаг отката не выполнился бы
       - name: Healthcheck Helios
+        timeout-minutes: 4
         run: scripts/healthcheck.sh "${{ steps.upload.outputs.url }}" "$GITHUB_SHA"
 
       - name: Автооткат при провале healthcheck
-        if: failure() && steps.upload.outcome == 'success' && steps.upload.outputs.previous != ''
+        if: (failure() || cancelled()) && steps.upload.outcome == 'success' && steps.upload.outputs.previous != ''
         run: |
           scripts/helios/deploy.sh rollback "$GITHUB_REF_NAME" "${{ steps.upload.outputs.previous }}"
           echo "::error::healthcheck не прошёл — возвращён релиз ${{ steps.upload.outputs.previous }}"

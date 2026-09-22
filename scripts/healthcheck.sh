@@ -3,15 +3,19 @@
 #   healthcheck.sh <url> <expected_sha>
 # Падает (exit 1), если хоть одна проверка не прошла за все попытки.
 # Повторы нужны из-за кэшей: CDN GitHub Pages отдаёт новую версию не мгновенно.
+# Если главная не отвечает как надо, попытка прерывается сразу: se.ifmo.ru
+# перестаёт отвечать IP, с которого идёт серия ошибочных запросов, а десятки
+# запросов с таймаутом по 20 с выводили job за её лимит (и автооткат не выполнялся).
 set -uo pipefail
 
 URL=${1:?url}; SHA=${2:?sha}
 URL="${URL%/}/"
-ATTEMPTS=${HC_ATTEMPTS:-6}; DELAY=${HC_DELAY:-10}
+ATTEMPTS=${HC_ATTEMPTS:-5}; DELAY=${HC_DELAY:-10}; DEADLINE=$(( $(date +%s) + ${HC_DEADLINE:-150} ))
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 
 fetch() {  # fetch <path> → код ответа; тело в $TMP/body
-  curl -sS -L --max-time 20 -H 'Cache-Control: no-cache' -o "$TMP/body" -w '%{http_code}' "$URL$1?hc=$RANDOM" 2>"$TMP/err" || echo 000
+  # при ошибке соединения curl сам печатает 000 — «|| echo 000» дал бы 000000
+  curl -sS -L --connect-timeout 5 --max-time 10 -H 'Cache-Control: no-cache' -o "$TMP/body" -w '%{http_code}' "$URL$1?hc=$RANDOM" 2>"$TMP/err" || true
 }
 
 check() {
@@ -27,6 +31,7 @@ check() {
   # контрольная строка — метка именно этой сборки, а не любой прошлой
   # SHA может быть коротким (откат по id релиза) — сравнивается префикс
   expect "" "главная, метка сборки" "<meta name=\"nir-build\" content=\"$SHA"
+  [ "$fails" = 0 ] || return 1   # не та версия или сайт недоступен — остальное проверять незачем
   expect "results/figures/" "страница рисунков" "Рис. 1."
   expect "results/tables/" "страница таблиц" "Таблица 13."
   expect "method/" "страница с формулами" 'class="arithmatex"'
@@ -44,7 +49,7 @@ check() {
 for i in $(seq 1 "$ATTEMPTS"); do
   echo "healthcheck $URL (попытка $i/$ATTEMPTS)"
   if check; then echo "healthcheck: OK"; exit 0; fi
-  [ "$i" -lt "$ATTEMPTS" ] && sleep "$DELAY"
+  if [ "$i" -lt "$ATTEMPTS" ] && [ $(( $(date +%s) + DELAY )) -lt "$DEADLINE" ]; then sleep "$DELAY"; else break; fi
 done
 echo "healthcheck: FAIL — опубликованная версия не соответствует $SHA" >&2
 exit 1
