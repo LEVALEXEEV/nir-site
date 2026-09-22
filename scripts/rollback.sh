@@ -32,7 +32,8 @@ fi
   # без аргумента — предыдущий релиз в списке, отсортированном по дате
   want='$WANT'
   [ -n \"\$want\" ] || want=\$(ls -1 releases | sort -r | grep -A1 -x \"\$current\" | tail -1)
-  [ -d \"releases/\$want\" ] || { echo \"нет релиза \$want\" >&2; exit 1; }
+  # страховка: неполный каталог откатом не публикуем
+  [ -f \"releases/\$want/index.html\" ] || { echo \"нет полного релиза \$want\" >&2; exit 1; }
   ln -sfn releases/\$want current.tmp && mv -fh current.tmp current
   echo \"откат: \$current → \$want\"
 "
