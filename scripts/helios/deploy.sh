@@ -46,17 +46,22 @@ case "$cmd" in
     t=$(target_of "$branch")
     id="$(date -u +%Y%m%dT%H%M%SZ)-${sha:0:7}"
     started=$(date +%s)
+    # Apache Helios понимает .htaccess; путь к 404.html — от корня домена и свой
+    # у каждой цели (корень или preview/<slug>/), поэтому пишется здесь, а не в docs/
+    printf 'ErrorDocument 404 %s404.html\n' "$(url_of "$t" | sed -E 's#^https?://[^/]+##')" > "$site/.htaccess"
     prev=$(remote prepare "$t")
     echo "helios: цель $t, релиз $id, текущий ${prev:-нет}"
     # новый релиз — отдельный каталог; неизменённые файлы — жёсткие ссылки на
     # текущий релиз (--link-dest), так что передаётся только разница
     link=(); [ -n "$prev" ] && link=(--link-dest="../$prev")
-    rsync -rlz --delete --partial --timeout=120 "${link[@]}" \
+    rsync -rlz --delete --partial --timeout=120 ${link[@]+"${link[@]}"} \
       --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r \
       -e "ssh ${SSH_OPTS[*]}" "$site/" "$USER_@$HOST:nir-deploy/releases/$t/.incoming-$id/"
     remote activate "$t" "$id" "$sha"
     echo "helios: загружено и опубликовано за $(( $(date +%s) - started )) с → $(url_of "$t")"
-    [ -n "${GITHUB_OUTPUT:-}" ] && { echo "release=$id"; echo "previous=$prev"; echo "url=$(url_of "$t")"; } >> "$GITHUB_OUTPUT"
+    if [ -n "${GITHUB_OUTPUT:-}" ]; then
+      { echo "release=$id"; echo "previous=$prev"; echo "url=$(url_of "$t")"; } >> "$GITHUB_OUTPUT"
+    fi
     ;;
 
   rollback) remote rollback "$(target_of "${1:?ветка}")" ${2:+"$2"} ;;

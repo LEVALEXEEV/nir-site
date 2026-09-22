@@ -33,8 +33,10 @@ check() {
   expect "assets/katex/katex.min.js" "KaTeX с сайта, не с CDN"
   expect "assets/katex/fonts/KaTeX_Main-Regular.woff2" "шрифт KaTeX"
   expect "results/provenance.json" "метаданные происхождения" '"results_tree"'
+  # 404 должна быть страницей сайта (со стилями по site_url), а не заглушкой веб-сервера
   code=$(fetch "no-such-page-$RANDOM/")
-  [ "$code" = 404 ] && echo "  ✓ несуществующая страница → 404" || { echo "  ✗ несуществующая страница → HTTP $code"; fails=$((fails + 1)); }
+  if [ "$code" = 404 ] && grep -qF 'name="nir-build"' "$TMP/body"; then echo "  ✓ несуществующая страница → 404 сайта"
+  else echo "  ✗ несуществующая страница → HTTP $code или 404 не от сайта"; fails=$((fails + 1)); fi
   return "$fails"
 }
 
