@@ -38,6 +38,11 @@ check() {
   expect "search/search_index.json" "индекс поиска" "three.js"
   expect "assets/katex/katex.min.js" "KaTeX с сайта, не с CDN"
   expect "assets/katex/fonts/KaTeX_Main-Regular.woff2" "шрифт KaTeX"
+  # главный бандл JS должен приходить сжатым (на Helios — через .gz-копии, см. deploy.sh)
+  bundle=$(fetch "" >/dev/null; grep -o 'assets/javascripts/bundle\.[0-9a-f]*\.min\.js' "$TMP/body" | head -1)
+  if curl -s -o /dev/null -D - -H 'Accept-Encoding: gzip' --max-time 10 "$URL$bundle" | grep -qi '^content-encoding: gzip'; then
+    echo "  ✓ JS отдаётся сжатым (gzip)"
+  else echo "  ✗ $bundle отдаётся без сжатия"; fails=$((fails + 1)); fi
   expect "results/provenance.json" "метаданные происхождения" '"results_tree"'
   # 404 должна быть страницей сайта (со стилями по site_url), а не заглушкой веб-сервера
   code=$(fetch "no-such-page-$RANDOM/")

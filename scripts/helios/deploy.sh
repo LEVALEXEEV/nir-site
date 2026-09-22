@@ -46,9 +46,28 @@ case "$cmd" in
     t=$(target_of "$branch")
     id="$(date -u +%Y%m%dT%H%M%SZ)-${sha:0:7}"
     started=$(date +%s)
-    # Apache Helios понимает .htaccess; путь к 404.html — от корня домена и свой
-    # у каждой цели (корень или preview/<slug>/), поэтому пишется здесь, а не в docs/
-    printf 'ErrorDocument 404 %s404.html\n' "$(url_of "$t" | sed -E 's#^https?://[^/]+##')" > "$site/.htaccess"
+    # Apache Helios понимает .htaccess; путь к 404.html и RewriteBase — от корня
+    # домена и свои у каждой цели (корень или preview/<slug>/), поэтому пишутся здесь
+    path=$(url_of "$t" | sed -E 's#^https?://[^/]+##')
+    # nginx перед Apache сжимает HTML/CSS/JSON, но не JS и SVG, а mod_deflate в
+    # Apache не загружен (AddOutputFilterByType в .htaccess → 500). Поэтому
+    # копии .gz готовятся здесь и отдаются через mod_rewrite тем, кто принимает gzip.
+    # -n: без имени и времени в заголовке — у неизменённого файла тот же .gz,
+    # и --link-dest по-прежнему передаёт только разницу
+    find "$site" -type f \( -name '*.js' -o -name '*.svg' \) -exec gzip -9 -n -k -f {} +
+    cat > "$site/.htaccess" <<HTACCESS
+ErrorDocument 404 ${path}404.html
+RewriteEngine On
+RewriteBase ${path}
+RewriteCond %{HTTP:Accept-Encoding} gzip
+RewriteCond %{REQUEST_FILENAME}.gz -f
+RewriteRule ^(.+\.(js|svg))\$ \$1.gz [L]
+RemoveType .gz
+AddEncoding gzip .gz
+<FilesMatch "\.(js|svg)(\.gz)?\$">
+  Header append Vary Accept-Encoding
+</FilesMatch>
+HTACCESS
     prev=$(remote prepare "$t")
     echo "helios: цель $t, релиз $id, текущий ${prev:-нет}"
     # новый релиз — отдельный каталог; неизменённые файлы — жёсткие ссылки на
