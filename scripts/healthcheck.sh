@@ -25,7 +25,8 @@ check() {
     echo "  ✓ $2"
   }
   # контрольная строка — метка именно этой сборки, а не любой прошлой
-  expect "" "главная, метка сборки" "<meta name=\"nir-build\" content=\"$SHA\">"
+  # SHA может быть коротким (откат по id релиза) — сравнивается префикс
+  expect "" "главная, метка сборки" "<meta name=\"nir-build\" content=\"$SHA"
   expect "results/figures/" "страница рисунков" "Рис. 1."
   expect "results/tables/" "страница таблиц" "Таблица 13."
   expect "method/" "страница с формулами" 'class="arithmatex"'
