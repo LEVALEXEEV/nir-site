@@ -40,3 +40,9 @@ HELIOS_KEY=~/.ssh/helios_deploy scripts/rollback.sh main list
 ## Лицензии
 
 Код — [MIT](LICENSE). Тексты, рисунки, таблицы — [CC BY 4.0](LICENSE-CONTENT).
+
+Превью удалённой ветки убирается вручную:
+
+```bash
+ssh -p 2222 s505996@helios.cs.ifmo.ru 'rm -rf ~/nir-deploy/nir-preview/<ветка> ~/public_html/nir-preview/<ветка>'
+```

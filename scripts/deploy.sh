@@ -15,6 +15,9 @@ USER_=s505996
 SITE=${1:?каталог сайта}
 BRANCH=${2:?ветка}
 
+# защита от выкладки пустого или несобранного каталога
+[ -f "$SITE/index.html" ] || { echo "в $SITE нет index.html — сайт не собран" >&2; exit 1; }
+
 SSH=(ssh -p "$PORT" -o BatchMode=yes -o UserKnownHostsFile="$(dirname "$0")/known_hosts")
 [ -n "${HELIOS_KEY:-}" ] && SSH+=(-i "$HELIOS_KEY")
 
