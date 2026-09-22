@@ -59,7 +59,9 @@ case "$cmd" in
     # заново, и по mtime rsync считал бы изменившимся всё, а --link-dest не связал
     # бы ничего. Сравнение тогда идёт по содержимому (--checksum ниже), иначе файл
     # той же длины (метка сборки — sha фиксированной длины!) не был бы передан.
-    find "$site" -exec touch -h -t 202601010000 {} +
+    # TZ=UTC обязателен: touch -t берёт местное время, и релиз, выложенный с
+    # машины в UTC+3, не совпал бы с релизом из CI (UTC) — снова ноль ссылок
+    find "$site" -exec env TZ=UTC touch -h -t 202601010000 {} +
     cat > "$site/.htaccess" <<HTACCESS
 ErrorDocument 404 ${path}404.html
 RewriteEngine On
