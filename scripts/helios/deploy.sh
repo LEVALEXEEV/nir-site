@@ -71,10 +71,12 @@ HTACCESS
     prev=$(remote prepare "$t")
     echo "helios: цель $t, релиз $id, текущий ${prev:-нет}"
     # новый релиз — отдельный каталог; неизменённые файлы — жёсткие ссылки на
-    # текущий релиз (--link-dest), так что передаётся только разница
+    # текущий релиз (--link-dest), так что передаётся только разница.
+    # -t обязателен: без сохранения времени файлов rsync считает изменившимся
+    # каждый файл, и link-dest не связывает ничего (проверено: 0 ссылок из 166)
     link=(); [ -n "$prev" ] && link=(--link-dest="../$prev")
     # RSYNC_EXTRA — доп. флаги (например, --bwlimit для демонстрации обрыва)
-    rsync -rlz --delete --partial --timeout=120 ${RSYNC_EXTRA:-} ${link[@]+"${link[@]}"} \
+    rsync -rltz --delete --partial --timeout=120 ${RSYNC_EXTRA:-} ${link[@]+"${link[@]}"} \
       --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r \
       -e "ssh ${SSH_OPTS[*]}" "$site/" "$USER_@$HOST:nir-deploy/releases/$t/.incoming-$id/"
     remote activate "$t" "$id" "$sha"
