@@ -14,6 +14,9 @@ copyright: "Тексты, рисунки и таблицы — CC BY 4.0, код
 # page/ → page/index.html: одинаково работает на GitHub Pages и в Apache Helios
 use_directory_urls: true
 strict: true
+# битые якоря — тоже ошибка сборки (по умолчанию MkDocs лишь сообщает о них)
+validation:
+  anchors: warn
 
 theme:
   name: material
@@ -69,6 +72,10 @@ markdown_extensions:
   - tables
   - toc:
       permalink: true
+      # якоря из кириллицы: стандартный slugify выбрасывает не-ASCII, и ссылки
+      # вида page.md#раздел вели бы в никуда
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds: { case: lower }
   - pymdownx.arithmatex:
       generic: true
   - pymdownx.details
