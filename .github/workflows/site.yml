@@ -81,6 +81,7 @@ jobs:
           chmod 600 "$RUNNER_TEMP/key"
 
       - name: Выкладка на Helios
+        id: deploy
         env:
           HELIOS_KEY: ${{ runner.temp }}/key
         run: scripts/deploy.sh site "$GITHUB_REF_NAME"
@@ -89,8 +90,9 @@ jobs:
         run: scripts/healthcheck.sh "${{ steps.url.outputs.url }}" "$GITHUB_SHA"
 
       # если проверка не прошла — возвращаем предыдущий релиз
+      # (только когда выкладка состоялась: при ошибке сборки откатывать нечего)
       - name: Откат при неудачной проверке
-        if: failure()
+        if: failure() && steps.deploy.outcome == 'success'
         env:
           HELIOS_KEY: ${{ runner.temp }}/key
         run: scripts/rollback.sh "$GITHUB_REF_NAME"

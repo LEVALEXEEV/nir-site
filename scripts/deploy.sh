@@ -50,7 +50,7 @@ rsync -rlz --delete --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r -e "${SSH[*]}" \
   ln -sfn releases/$RELEASE current.tmp && mv -fh current.tmp current
   mkdir -p ~/public_html/$(dirname "$DIR")
   ln -sfn ~/nir-deploy/$DIR/current ~/public_html/$DIR
-  rm -rf releases/*.partial                                  # обрывки прошлых выкладок
+  rm -rf releases/*.partial
   ls -1 releases | sort -r | tail -n +6 | xargs -I{} rm -rf releases/{}   # храним 5 версий
   echo 'опубликован релиз $RELEASE'
 "
