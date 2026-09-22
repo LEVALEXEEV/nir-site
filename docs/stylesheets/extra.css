@@ -1,0 +1,4 @@
+/* рисунки matplotlib на светлом фоне: в тёмной теме — светлая подложка, а не инверсия */
+.md-typeset figure img { background: #fcfcfb; border-radius: 4px; }
+.md-typeset table:not([class]) { font-size: .72rem; }
+.nir-build { padding: .4rem .8rem; font-size: .6rem; opacity: .6; text-align: right; }

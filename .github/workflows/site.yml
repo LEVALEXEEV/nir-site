@@ -1,0 +1,96 @@
+# Сборка сайта и публикация на две площадки.
+#   ветка main      → GitHub Pages и Helios (корень сайта)
+#   остальные ветки → только Helios, в отдельный подкаталог preview
+# После каждой публикации сайт проверяется запросом снаружи (healthcheck).
+name: site
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # ── GitHub Pages: только основная ветка ──────────────────────────────────
+  pages:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write        # право опубликовать сайт
+      id-token: write     # без секретов, авторизация по токену запуска
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - run: pip install -r requirements.txt
+
+      # site_url задаётся адресом площадки: от него зависит страница 404
+      - name: Сборка сайта
+        run: mkdocs build --strict
+        env:
+          SITE_URL: https://levalexeev.github.io/nir-site/
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v5
+
+      - name: Проверка опубликованного сайта
+        run: scripts/healthcheck.sh "${{ steps.deploy.outputs.page_url }}" "$GITHUB_SHA"
+
+  # ── Helios: любая ветка ──────────────────────────────────────────────────
+  helios:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - run: pip install -r requirements.txt
+
+      # адрес зависит от ветки: main — в корень, остальные — в preview
+      - name: Адрес публикации
+        id: url
+        run: |
+          if [ "$GITHUB_REF_NAME" = main ]; then
+            echo "url=https://se.ifmo.ru/~s505996/nir/" >> "$GITHUB_OUTPUT"
+          else
+            slug=$(echo "$GITHUB_REF_NAME" | tr '/A-Z' '-a-z')
+            echo "url=https://se.ifmo.ru/~s505996/nir-preview/$slug/" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Сборка сайта
+        run: mkdocs build --strict
+        env:
+          SITE_URL: ${{ steps.url.outputs.url }}
+
+      - name: SSH-ключ из секрета
+        run: |
+          echo "${{ secrets.HELIOS_SSH_KEY }}" > "$RUNNER_TEMP/key"
+          chmod 600 "$RUNNER_TEMP/key"
+
+      - name: Выкладка на Helios
+        env:
+          HELIOS_KEY: ${{ runner.temp }}/key
+        run: scripts/deploy.sh site "$GITHUB_REF_NAME"
+
+      - name: Проверка опубликованного сайта
+        run: scripts/healthcheck.sh "${{ steps.url.outputs.url }}" "$GITHUB_SHA"
+
+      # если проверка не прошла — возвращаем предыдущий релиз
+      - name: Откат при неудачной проверке
+        if: failure()
+        env:
+          HELIOS_KEY: ${{ runner.temp }}/key
+        run: scripts/rollback.sh "$GITHUB_REF_NAME"
