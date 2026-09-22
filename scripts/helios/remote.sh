@@ -31,7 +31,8 @@ live_link() {  # путь симлинка, через который публи
 current_id() { l=$(live_link "$1"); [ -L "$l" ] && basename "$(readlink "$l")" || true; }
 
 switch() {  # switch <target> <id>: атомарно направить live-ссылку на релиз
-  target=$1 id=$2 link=$(live_link "$1")
+  target=$1 id=$2
+  link=$(live_link "$target")
   rel="$ROOT/releases/$target/$id"
   [ -d "$rel" ] || die "нет релиза $target/$id"
   mkdir -p "$(dirname "$link")"
@@ -39,7 +40,10 @@ switch() {  # switch <target> <id>: атомарно направить live-с�
   mv -fh "$link.tmp.$$" "$link"   # rename(2): атомарно, без окна «сайта нет»
 }
 
-log() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $*" >> "$ROOT/releases/$1/history.log"; }
+log() {  # log <target> <действие> <id> …: строка «время действие id …» в журнал цели
+  f="$ROOT/releases/$1/history.log"; shift
+  echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $*" >> "$f"
+}
 
 cmd=${1:-}; shift || true
 case "$cmd" in
@@ -80,11 +84,11 @@ case "$cmd" in
     target=$1 want=${2:-}
     cur=$(current_id "$target")
     if [ -z "$want" ]; then
-      # предыдущий = последний релиз из журнала, отличный от текущего и ещё существующий
-      want=$(awk '$2=="deploy"||$2=="rollback"{print $3}' "$ROOT/releases/$target/history.log" \
-             | grep -vx "$cur" | tail -r | while read -r id; do
-                 [ -d "$ROOT/releases/$target/$id" ] && { echo "$id"; break; }; done)
-      [ -n "$want" ] || die "нет релиза для отката"
+      # предыдущий = выложенный непосредственно перед текущим (по записям deploy);
+      # повторный откат уходит дальше в прошлое, а не переключает туда-обратно
+      want=$(awk -v cur="$cur" '$2=="deploy"{ if ($3==cur) { print prev; exit } prev=$3 }' \
+             "$ROOT/releases/$target/history.log")
+      [ -n "$want" ] && [ -d "$ROOT/releases/$target/$want" ] || die "нет релиза для отката (до $cur)"
     fi
     switch "$target" "$want"
     log "$target" "rollback $want from=$cur"
@@ -92,7 +96,9 @@ case "$cmd" in
     ;;
 
   list)  # list <target>: релизы и журнал
-    target=$1 cur=$(current_id "$target")
+    # отдельными командами: sh выполняет подстановки до присваиваний в той же строке
+    target=$1
+    cur=$(current_id "$target")
     for r in $(ls -1 "$ROOT/releases/$target" | grep -v '^history.log$' | sort -r); do
       [ "$r" = "$cur" ] && echo "* $r (текущий)" || echo "  $r"
     done

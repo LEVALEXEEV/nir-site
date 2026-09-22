@@ -54,7 +54,8 @@ case "$cmd" in
     # новый релиз — отдельный каталог; неизменённые файлы — жёсткие ссылки на
     # текущий релиз (--link-dest), так что передаётся только разница
     link=(); [ -n "$prev" ] && link=(--link-dest="../$prev")
-    rsync -rlz --delete --partial --timeout=120 ${link[@]+"${link[@]}"} \
+    # RSYNC_EXTRA — доп. флаги (например, --bwlimit для демонстрации обрыва)
+    rsync -rlz --delete --partial --timeout=120 ${RSYNC_EXTRA:-} ${link[@]+"${link[@]}"} \
       --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r \
       -e "ssh ${SSH_OPTS[*]}" "$site/" "$USER_@$HOST:nir-deploy/releases/$t/.incoming-$id/"
     remote activate "$t" "$id" "$sha"
