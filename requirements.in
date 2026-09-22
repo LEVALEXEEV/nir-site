@@ -1,0 +1,8 @@
+# Прямые зависимости сайта. Точные версии всего дерева — в requirements.txt
+# (pip freeze), именно он ставится в CI.
+mkdocs==1.6.1
+mkdocs-material==9.7.7
+pymdown-extensions
+pyyaml
+# анализ: те же версии, что у ноутбука в benchmark
+-r benchmark/analysis/requirements.txt

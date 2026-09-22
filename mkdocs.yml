@@ -1,0 +1,94 @@
+site_name: "three.js vs react-three-fiber: результаты НИР"
+site_description: Воспроизводимое сравнение производительности императивного three.js и декларативного react-three-fiber
+site_author: Лев Алексеев
+# Базовый URL задаётся площадкой при сборке: GitHub Pages — корень проекта,
+# Helios — подкаталог ~s505996/nir/ (а превью веток — ещё глубже). От него
+# зависят canonical, sitemap и 404.html; ссылки внутри страниц — относительные.
+site_url: !ENV [SITE_URL, "http://127.0.0.1:8000/"]
+repo_url: https://github.com/LEVALEXEEV/nir-site
+repo_name: LEVALEXEEV/nir-site
+edit_uri: ""
+# ссылка на лицензии — в overrides/main.html от base_url: абсолютный "/about/license/"
+# на Helios вёл бы на se.ifmo.ru/about/license/, мимо подкаталога сайта
+copyright: "Тексты, рисунки и таблицы — CC BY 4.0, код — MIT."
+# page/ → page/index.html: одинаково работает на GitHub Pages и в Apache Helios
+use_directory_urls: true
+strict: true
+
+theme:
+  name: material
+  language: ru
+  custom_dir: overrides
+  # шрифты Google не грузятся: сайт не должен зависеть от внешних CDN
+  font: false
+  icon:
+    logo: material/cube-outline
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle: { icon: material/weather-night, name: Тёмная тема }
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle: { icon: material/weather-sunny, name: Светлая тема }
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+
+plugins:
+  - search:
+      lang: [ru, en]
+
+extra:
+  # контрольная строка для healthcheck: по ней видно, что отдаётся именно эта сборка
+  build:
+    sha: !ENV [GITHUB_SHA, local]
+    target: !ENV [DEPLOY_TARGET, local]
+
+extra_css:
+  - assets/katex/katex.min.css
+  - stylesheets/extra.css
+extra_javascript:
+  - javascripts/katex-init.js
+  - assets/katex/katex.min.js
+  - assets/katex/contrib/auto-render.min.js
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+not_in_nav: |
+  /results/report_files/**
+
+nav:
+  - Главная: index.md
+  - Результаты:
+      - Отчёт анализа: results/report.md
+      - Рисунки: results/figures.md
+      - Таблицы: results/tables.md
+      - Происхождение данных: results/provenance.md
+  - Методика: method.md
+  - О сайте:
+      - Отчёт о работе: about/report.md
+      - "Конвейер «эксперимент → артефакт → страница»": about/pipeline.md
+      - Развёртывание на Helios: about/deploy.md
+      - Лицензии: about/license.md

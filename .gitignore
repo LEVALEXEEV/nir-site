@@ -1,0 +1,14 @@
+# окружение Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+# сборка: сайт и сгенерированный контент — производные, в git не хранятся
+site/
+site-*/
+_build/
+_work/
+docs/results/
+.cache/
+.DS_Store
