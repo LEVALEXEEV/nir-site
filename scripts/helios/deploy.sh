@@ -55,6 +55,11 @@ case "$cmd" in
     # -n: без имени и времени в заголовке — у неизменённого файла тот же .gz,
     # и --link-dest по-прежнему передаёт только разницу
     find "$site" -type f \( -name '*.js' -o -name '*.svg' \) -exec gzip -9 -n -k -f {} +
+    # Время файлов приводится к одному значению: каждая сборка CI создаёт файлы
+    # заново, и по mtime rsync считал бы изменившимся всё, а --link-dest не связал
+    # бы ничего. Сравнение тогда идёт по содержимому (--checksum ниже), иначе файл
+    # той же длины (метка сборки — sha фиксированной длины!) не был бы передан.
+    find "$site" -exec touch -h -t 202601010000 {} +
     cat > "$site/.htaccess" <<HTACCESS
 ErrorDocument 404 ${path}404.html
 RewriteEngine On
@@ -76,7 +81,7 @@ HTACCESS
     # каждый файл, и link-dest не связывает ничего (проверено: 0 ссылок из 166)
     link=(); [ -n "$prev" ] && link=(--link-dest="../$prev")
     # RSYNC_EXTRA — доп. флаги (например, --bwlimit для демонстрации обрыва)
-    rsync -rltz --delete --partial --timeout=120 ${RSYNC_EXTRA:-} ${link[@]+"${link[@]}"} \
+    rsync -rltz --checksum --delete --partial --timeout=120 ${RSYNC_EXTRA:-} ${link[@]+"${link[@]}"} \
       --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r \
       -e "ssh ${SSH_OPTS[*]}" "$site/" "$USER_@$HOST:nir-deploy/releases/$t/.incoming-$id/"
     remote activate "$t" "$id" "$sha"
