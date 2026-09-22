@@ -1,10 +1,9 @@
 {% extends "base.html" %}
-{#- Метка сборки: healthcheck ищет её в HTML и так отличает новую версию от старой (кэш, незавершённый деплой). -#}
+{#- Метка сборки: по ней healthcheck отличает свежую версию от старой. -#}
 {% block extrahead %}
   <meta name="nir-build" content="{{ config.extra.build.sha | string }}">
-  <meta name="nir-target" content="{{ config.extra.build.target }}">
 {% endblock %}
 {% block footer %}
   {{ super() }}
-  <div class="md-typeset nir-build"><a href="{{ base_url }}/about/license/">лицензии</a> · сборка {{ config.extra.build.sha | string | truncate(7, true, "") }} · {{ config.extra.build.target }}</div>
+  <div class="md-typeset nir-build">сборка {{ config.extra.build.sha | string | truncate(7, true, "") }}</div>
 {% endblock %}

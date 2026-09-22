@@ -1,160 +1,96 @@
-# Сборка сайта из данных benchmark и публикация на две площадки.
-#   main        → GitHub Pages (корень проекта) и Helios …/~s505996/nir/
-#   любая ветка → только Helios, превью …/~s505996/nir/preview/<ветка>/
-# После выкладки healthcheck запрашивает опубликованный URL; на Helios при
-# провале выполняется автоматический откат на предыдущий релиз.
+# Сборка сайта и публикация на две площадки.
+#   ветка main      → GitHub Pages и Helios (корень сайта)
+#   остальные ветки → только Helios, в отдельный подкаталог preview
+# После каждой публикации сайт проверяется запросом снаружи (healthcheck).
 name: site
 
 on:
   push:
-    branches: ["**"]
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# Деплой одной ветки не отменяется новым пушем: оборванная выкладка хуже
-# лишней минуты ожидания (новый запуск встанет в очередь за текущим).
-concurrency:
-  group: site-${{ github.ref }}
-  cancel-in-progress: false
-
-env:
-  PAGES_URL: https://levalexeev.github.io/nir-site/
-  PYTHONUNBUFFERED: "1"
-
 jobs:
-  build:
+  # ── GitHub Pages: только основная ветка ──────────────────────────────────
+  pages:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    outputs:
-      helios_target: ${{ steps.target.outputs.target }}
-      helios_url: ${{ steps.target.outputs.url }}
+    permissions:
+      pages: write        # право опубликовать сайт
+      id-token: write     # без секретов, авторизация по токену запуска
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
-        with:
-          # benchmark — подмодуль на зафиксированном коммите: код анализа + сырые результаты
-          submodules: true
 
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
-          cache: pip
-          cache-dependency-path: requirements.txt
 
-      - name: Зависимости (lock)
-        run: pip install -r requirements.txt
+      - run: pip install -r requirements.txt
 
-      - name: Данные → рисунки и таблицы (исполнение ноутбука)
-        run: make content PY=python
-
-      - name: Цель на Helios
-        id: target
-        run: scripts/helios/deploy.sh target "$GITHUB_REF_NAME" | tee -a "$GITHUB_OUTPUT"
-
-      # Две сборки из одного контента: отличаются только site_url и меткой цели
-      # (canonical, sitemap и 404.html зависят от базового URL площадки).
-      - name: Сборка для GitHub Pages
-        if: github.ref == 'refs/heads/main'
+      # site_url задаётся адресом площадки: от него зависит страница 404
+      - name: Сборка сайта
+        run: mkdocs build --strict
         env:
-          SITE_URL: ${{ env.PAGES_URL }}
-          DEPLOY_TARGET: pages
-        run: |
-          mkdocs build --strict --site-dir site-pages
-          python scripts/check_site.py site-pages
-
-      - name: Сборка для Helios
-        env:
-          SITE_URL: ${{ steps.target.outputs.url }}
-          DEPLOY_TARGET: helios:${{ steps.target.outputs.target }}
-        run: |
-          mkdocs build --strict --site-dir site-helios
-          python scripts/check_site.py site-helios
+          SITE_URL: https://levalexeev.github.io/nir-site/
 
       - uses: actions/upload-pages-artifact@v5
-        if: github.ref == 'refs/heads/main'
         with:
-          path: site-pages
+          path: site
 
-      - uses: actions/upload-artifact@v7
-        with:
-          name: site-helios
-          path: site-helios
-          retention-days: 14
-
-  pages:
-    needs: build
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
+      - id: deploy
         uses: actions/deploy-pages@v5
 
-      - uses: actions/checkout@v7
-        with:
-          sparse-checkout: scripts
+      - name: Проверка опубликованного сайта
+        run: scripts/healthcheck.sh "${{ steps.deploy.outputs.page_url }}" "$GITHUB_SHA"
 
-      - name: Healthcheck GitHub Pages
-        timeout-minutes: 4
-        run: scripts/healthcheck.sh "${{ steps.deployment.outputs.page_url }}" "$GITHUB_SHA"
-
+  # ── Helios: любая ветка ──────────────────────────────────────────────────
   helios:
-    needs: build
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    environment:
-      name: ${{ github.ref == 'refs/heads/main' && 'helios' || 'helios-preview' }}
-      url: ${{ needs.build.outputs.helios_url }}
     steps:
       - uses: actions/checkout@v7
-        with:
-          sparse-checkout: scripts
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/setup-python@v7
         with:
-          name: site-helios
-          path: site-helios
+          python-version: "3.13"
 
-      - name: Deploy-ключ
+      - run: pip install -r requirements.txt
+
+      # адрес зависит от ветки: main — в корень, остальные — в preview
+      - name: Адрес публикации
+        id: url
+        run: |
+          if [ "$GITHUB_REF_NAME" = main ]; then
+            echo "url=https://se.ifmo.ru/~s505996/nir/" >> "$GITHUB_OUTPUT"
+          else
+            slug=$(echo "$GITHUB_REF_NAME" | tr '/A-Z' '-a-z')
+            echo "url=https://se.ifmo.ru/~s505996/nir-preview/$slug/" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Сборка сайта
+        run: mkdocs build --strict
         env:
-          HELIOS_SSH_KEY: ${{ secrets.HELIOS_SSH_KEY }}
+          SITE_URL: ${{ steps.url.outputs.url }}
+
+      - name: SSH-ключ из секрета
         run: |
-          test -n "$HELIOS_SSH_KEY" || { echo "::error::нет секрета HELIOS_SSH_KEY"; exit 1; }
-          install -m 600 /dev/null "$RUNNER_TEMP/helios_key"
-          printf '%s\n' "$HELIOS_SSH_KEY" > "$RUNNER_TEMP/helios_key"
-          echo "HELIOS_KEY=$RUNNER_TEMP/helios_key" >> "$GITHUB_ENV"
-          # ключ хоста закреплён в репозитории: подмену сервера ssh отвергнет
-          echo "HELIOS_KNOWN_HOSTS=$PWD/scripts/helios/known_hosts" >> "$GITHUB_ENV"
+          echo "${{ secrets.HELIOS_SSH_KEY }}" > "$RUNNER_TEMP/key"
+          chmod 600 "$RUNNER_TEMP/key"
 
-      - name: Выкладка (rsync → атомарное переключение)
-        id: upload
-        run: scripts/helios/deploy.sh upload site-helios "$GITHUB_REF_NAME" "$GITHUB_SHA"
+      - name: Выкладка на Helios
+        env:
+          HELIOS_KEY: ${{ runner.temp }}/key
+        run: scripts/deploy.sh site "$GITHUB_REF_NAME"
 
-      # свой лимит шага: зависший healthcheck должен упасть (failure), а не
-      # довести job до отмены по таймауту — тогда шаг отката не выполнился бы
-      - name: Healthcheck Helios
-        timeout-minutes: 4
-        run: scripts/healthcheck.sh "${{ steps.upload.outputs.url }}" "$GITHUB_SHA"
+      - name: Проверка опубликованного сайта
+        run: scripts/healthcheck.sh "${{ steps.url.outputs.url }}" "$GITHUB_SHA"
 
-      - name: Автооткат при провале healthcheck
-        if: (failure() || cancelled()) && steps.upload.outcome == 'success' && steps.upload.outputs.previous != ''
-        run: |
-          scripts/helios/deploy.sh rollback "$GITHUB_REF_NAME" "${{ steps.upload.outputs.previous }}"
-          echo "::error::healthcheck не прошёл — возвращён релиз ${{ steps.upload.outputs.previous }}"
-
-      - name: Итог
-        if: always()
-        run: |
-          {
-            echo "### Helios: ${{ steps.upload.outcome }}"
-            echo "- URL: ${{ steps.upload.outputs.url }}"
-            echo "- релиз: \`${{ steps.upload.outputs.release }}\`, предыдущий: \`${{ steps.upload.outputs.previous }}\`"
-          } >> "$GITHUB_STEP_SUMMARY"
-          rm -f "$RUNNER_TEMP/helios_key"
+      # если проверка не прошла — возвращаем предыдущий релиз
+      - name: Откат при неудачной проверке
+        if: failure()
+        env:
+          HELIOS_KEY: ${{ runner.temp }}/key
+        run: scripts/rollback.sh "$GITHUB_REF_NAME"

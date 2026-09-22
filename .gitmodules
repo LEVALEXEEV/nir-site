@@ -1,4 +1,0 @@
-[submodule "benchmark"]
-	path = benchmark
-	url = https://github.com/LEVALEXEEV/benchmark.git
-	branch = nir3-protocol

@@ -8,15 +8,10 @@ site_url: !ENV [SITE_URL, "http://127.0.0.1:8000/"]
 repo_url: https://github.com/LEVALEXEEV/nir-site
 repo_name: LEVALEXEEV/nir-site
 edit_uri: ""
-# ссылка на лицензии — в overrides/main.html от base_url: абсолютный "/about/license/"
-# на Helios вёл бы на se.ifmo.ru/about/license/, мимо подкаталога сайта
 copyright: "Тексты, рисунки и таблицы — CC BY 4.0, код — MIT."
 # page/ → page/index.html: одинаково работает на GitHub Pages и в Apache Helios
 use_directory_urls: true
 strict: true
-# битые якоря — тоже ошибка сборки (по умолчанию MkDocs лишь сообщает о них)
-validation:
-  anchors: warn
 
 theme:
   name: material
@@ -52,7 +47,6 @@ extra:
   # контрольная строка для healthcheck: по ней видно, что отдаётся именно эта сборка
   build:
     sha: !ENV [GITHUB_SHA, local]
-    target: !ENV [DEPLOY_TARGET, local]
 
 extra_css:
   - assets/katex/katex.min.css
@@ -72,10 +66,6 @@ markdown_extensions:
   - tables
   - toc:
       permalink: true
-      # якоря из кириллицы: стандартный slugify выбрасывает не-ASCII, и ссылки
-      # вида page.md#раздел вели бы в никуда
-      slugify: !!python/object/apply:pymdownx.slugs.slugify
-        kwds: { case: lower }
   - pymdownx.arithmatex:
       generic: true
   - pymdownx.details
@@ -83,19 +73,9 @@ markdown_extensions:
   - pymdownx.tabbed:
       alternate_style: true
 
-not_in_nav: |
-  /results/report_files/**
-
 nav:
   - Главная: index.md
-  - Результаты:
-      - Отчёт анализа: results/report.md
-      - Рисунки: results/figures.md
-      - Таблицы: results/tables.md
-      - Происхождение данных: results/provenance.md
+  - Анализ: analysis.md
+  - Рисунки: figures.md
+  - Таблицы: tables.md
   - Методика: method.md
-  - О сайте:
-      - Отчёт о работе: about/report.md
-      - "Конвейер «эксперимент → артефакт → страница»": about/pipeline.md
-      - Развёртывание на Helios: about/deploy.md
-      - Лицензии: about/license.md

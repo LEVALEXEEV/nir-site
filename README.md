@@ -1,34 +1,41 @@
-# nir-site — результаты НИР «three.js vs react-three-fiber»
+# nir-site — сайт с результатами НИР «three.js vs react-three-fiber»
 
-Статический сайт (MkDocs + Material) с рисунками и таблицами исследования.
-Рисунки и таблицы не хранятся здесь: при каждой сборке ноутбук анализа
-исполняется на данных из подмодуля [`benchmark`](https://github.com/LEVALEXEEV/benchmark)
-на зафиксированном коммите.
+Статический сайт на MkDocs + Material. Готовые рисунки, таблицы и отчёт
+анализа лежат в `docs/` — при сборке ничего не вычисляется.
 
 * GitHub Pages: https://levalexeev.github.io/nir-site/
-* Helios ИТМО: https://se.ifmo.ru/~s505996/nir/ (ветки — `…/nir/preview/<ветка>/`)
+* Helios ИТМО: https://se.ifmo.ru/~s505996/nir/
+* Превью веток: https://se.ifmo.ru/~s505996/nir-preview/&lt;ветка&gt;/
 
 ## Локально
 
 ```bash
-git clone --recurse-submodules https://github.com/LEVALEXEEV/nir-site.git && cd nir-site
-virtualenv -p python3.13 .venv && source .venv/bin/activate
-pip install -r requirements.txt
-make serve                 # content + mkdocs serve → http://127.0.0.1:8000/
-make site                  # сборка как в CI: --strict + check_site.py
+make install     # виртуальное окружение и зависимости
+make serve       # предпросмотр на http://127.0.0.1:8000/
+make build       # сборка в site/
 ```
+
+## Что где лежит
 
 | Путь | Что |
 |---|---|
-| `scripts/build_content.py` | ноутбук → `docs/results/` (отчёт, рисунки, таблицы, provenance) |
-| `content/captions.yml` | подписи ко всем рисункам и таблицам |
-| `scripts/check_site.py` | запрет ссылок от корня домена и внешних ресурсов |
-| `scripts/helios/` | деплой на Helios: `deploy.sh` (клиент), `remote.sh` (сервер), `known_hosts` |
-| `scripts/healthcheck.sh` | проверка опубликованного URL |
-| `.github/workflows/site.yml` | сборка → Pages + Helios, healthcheck, автооткат |
-| `.github/workflows/helios-ops.yml` | ручной откат / список релизов, удаление превью |
+| `docs/` | страницы сайта, рисунки, таблицы, ноутбук, KaTeX |
+| `mkdocs.yml` | настройки сайта: разделы, тема, формулы |
+| `scripts/deploy.sh` | выкладка на Helios по rsync с переключением симлинка |
+| `scripts/rollback.sh` | откат на предыдущий релиз (и список релизов) |
+| `scripts/healthcheck.sh` | проверка опубликованного сайта снаружи |
+| `scripts/vendor_katex.sh` | скачивание KaTeX в `docs/assets/katex` |
+| `.github/workflows/site.yml` | сборка и публикация на Pages и Helios |
+| `.github/workflows/rollback.yml` | ручной откат Helios |
 
-Обновить данные: `git -C benchmark pull && git add benchmark && git commit`.
+## Деплой вручную
+
+```bash
+mkdocs build --strict
+HELIOS_KEY=~/.ssh/helios_deploy scripts/deploy.sh site main
+scripts/healthcheck.sh https://se.ifmo.ru/~s505996/nir/ $(git rev-parse HEAD)
+HELIOS_KEY=~/.ssh/helios_deploy scripts/rollback.sh main list
+```
 
 ## Лицензии
 
