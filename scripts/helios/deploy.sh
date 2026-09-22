@@ -59,9 +59,6 @@ case "$cmd" in
     # заново, и по mtime rsync считал бы изменившимся всё, а --link-dest не связал
     # бы ничего. Сравнение тогда идёт по содержимому (--checksum ниже), иначе файл
     # той же длины (метка сборки — sha фиксированной длины!) не был бы передан.
-    # TZ=UTC обязателен: touch -t берёт местное время, и релиз, выложенный с
-    # машины в UTC+3, не совпал бы с релизом из CI (UTC) — снова ноль ссылок
-    find "$site" -exec env TZ=UTC touch -h -t 202601010000 {} +
     cat > "$site/.htaccess" <<HTACCESS
 ErrorDocument 404 ${path}404.html
 RewriteEngine On
@@ -75,6 +72,10 @@ AddEncoding gzip .gz
   Header append Vary Accept-Encoding
 </FilesMatch>
 HTACCESS
+    # TZ=UTC обязателен: touch -t берёт местное время, и релиз, выложенный с
+    # машины в UTC+3, не совпал бы с релизом из CI (UTC) — снова ноль ссылок.
+    # Идёт после .htaccess, иначе он один остался бы с текущим временем.
+    find "$site" -exec env TZ=UTC touch -h -t 202601010000 {} +
     prev=$(remote prepare "$t")
     echo "helios: цель $t, релиз $id, текущий ${prev:-нет}"
     # новый релиз — отдельный каталог; неизменённые файлы — жёсткие ссылки на
