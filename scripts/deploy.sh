@@ -34,6 +34,10 @@ RELEASE=$(date -u +%Y%m%d-%H%M%S)
 
 echo "Выкладка ветки $BRANCH → ~/public_html/$DIR (релиз $RELEASE)"
 
+# Apache сам не знает про 404.html, который собирает MkDocs, поэтому страница
+# подключается через .htaccess. Путь абсолютный и зависит от адреса публикации.
+printf 'ErrorDocument 404 /~%s/%s/404.html\n' "$USER_" "$DIR" > "$SITE/.htaccess"
+
 # 1. Каталог для загрузки: rsync сам вложенные каталоги не создаёт
 "${SSH[@]}" "$USER_@$HOST" "mkdir -p ~/nir-deploy/$DIR/releases/$RELEASE.partial"
 
